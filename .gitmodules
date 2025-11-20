@@ -1,7 +1,7 @@
 [submodule "src/AMIGA_Smart_Farming"]
-	path = src/AMIGA_Smart_Farming
-	url = https://github.com/Janmejay-Rathi/AMIGA_Smart_Farming.git
-	branch = simulation
+    path = src/AMIGA_Smart_Farming
+    url = https://github.com/MananM1310/AMIGA_Smart_Farming.git
+    branch = simulation
 [submodule "src/src/amiga-ros-bridge"]
 	path = src/src/amiga-ros-bridge
 	url = https://github.com/farm-ng/amiga-ros-bridge.git

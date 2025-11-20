@@ -1,0 +1,21 @@
+# Catkin / build artifacts
+build/
+devel/
+.catkin_tools/
+.catkin_workspace
+
+# Python junk
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Editor / OS junk
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# ROS log files (if any get copied/synced here)
+ros_logs/
+EOF

@@ -1,0 +1,17 @@
+<launch>
+  <!-- Make sure Gazebo can find the AMIGA models -->
+  <env name="GAZEBO_MODEL_PATH"
+       value="$(find amiga_sim)/models:$(env GAZEBO_MODEL_PATH)" />
+
+  <!-- Start the AMIGA simulation -->
+  <include file="$(find amiga_sim)/launch/sim.launch" />
+
+  <!-- Simple straight-line controller -->
+  <node pkg="amiga_autonomy"
+        type="row_go_straight.py"
+        name="row_go_straight"
+        output="screen">
+    <param name="forward_speed" value="0.4" />
+    <param name="rate_hz" value="20.0" />
+  </node>
+</launch>
