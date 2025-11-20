@@ -1,143 +1,209 @@
-This repository is a ROS Noetic catkin workspace that wraps:
 
-- **AMIGA_Smart_Farming** (simulation): farm-ng AMIGA robot + horseradish field + weed generator
-- **amiga-ros-bridge**: official farm-ng ROS bridge
-- **amiga_autonomy**: my own autonomy package for simulation and, later, real robot deployment
+```markdown
+# AMIGA Digital Twin – Autonomous Weed Monitoring
 
-## Structure
+This repository contains my **digital twin setup for the AMIGA Smart Farming robot**, focused on:
 
-```text
+- 🌱 **Row-following using vision**
+- 🛑 **Weed detection and stopping logic**
+- 🗺️ Simulation-based experimentation for future real-world deployment
+- 🛰️ Foundations for mapping and coverage planning
+
+All development is done on a **clean separate digital twin repo** to avoid breaking the original AMIGA repository.
+
+---
+
+## 📂 Repository Structure
+
+```
+
 amiga_digital_twin/
+│
 ├── src/
-│   ├── AMIGA_Smart_Farming/      # fork (branch: simulation)
-│   │   └── src/amiga_sim/        # Gazebo sim, weeds, RViz config, etc.
-│   ├── amiga-ros-bridge/         # ROS bridge from farm-ng
-│   └── amiga_autonomy/           # custom autonomy nodes
-│       ├── package.xml
-│       ├── CMakeLists.txt
-│       └── scripts/
-│           ├── row_go_straight.py
-│           └── row_follow_camera.py
+│   ├── AMIGA_Smart_Farming/     # Submodule (my fork)
+│   ├── amiga_autonomy/          # My autonomy stack
+│   └── amiga_state_estimation/  # State estimation (EKF experiments)
+│
+├── build/       # ignored
+├── devel/       # ignored
+├── .gitignore
+├── .gitmodules
 └── README.md
-Features
-1. Row-following from downward camera
-Node: amiga_autonomy/scripts/row_follow_camera.py
 
-Subscribes to: /oak_d_camera_1/image_raw
+```
 
-Rotates the image so ground is at the bottom.
+---
 
-Segments green plants in HSV, samples green points across the whole image.
+## ✅ Key Features Implemented
 
-Fits a line to plant centers and builds a lane-shaped band (not just a stiff center line).
+### 1. Vision-Based Row Following
+- Uses **downward-facing Oak-D camera** (`oak_d_camera_1`).
+- Detects crop row using green segmentation.
+- Fits a line using detected plant clusters.
+- Tracks the row and corrects steering.
 
-Computes steering command to keep the AMIGA centered in the row.
+Features:
+- Handles sensor noise
+- Handles missing detections
+- Smooth steering using proportional control
 
-Publishes velocity commands on: /amiga/cmd_vel
+---
 
-Publishes a debug image with the lane overlay on: /row_follow/front_debug
+### 2. Weed Stopping Logic
+Integrated into the same node as row following.
 
-2. Simulation weeds with consistent positions
-Weeds are generated in AMIGA_Smart_Farming:
+Logic:
+- Subscribes to `/sim/nearest_weed`
+- Uses `/gazebo/model_states` to compute robot → weed distance
+- Stops when within threshold distance
+- Remembers visited weeds to avoid stopping again
 
-Script: src/AMIGA_Smart_Farming/src/amiga_sim/scripts/gen_weeds.py
+---
 
-SDF output: src/AMIGA_Smart_Farming/src/amiga_sim/models/farm_weeds/model.sdf
+### 3. Lane Visualization
+Publishes animated curved lane overlay showing:
+- Extracted row line
+- Lane width region
+- Detected plant points
+- Weed stopping states
 
-Also writes a JSON file of weed positions:
-src/AMIGA_Smart_Farming/src/amiga_sim/models/farm_weeds/weed_positions.json
+Debug topic:
+```
 
-We use the scale of each plant:
+/row_follow/front_debug
 
-Small plants (scale ≤ 0.3) are treated as weeds.
+````
 
-Larger plants are treated as regular crop plants.
+View using:
+```bash
+rosrun rqt_image_view rqt_image_view
+````
 
-Only weeds on the robot’s row are considered for stopping.
+---
 
-3. Weed “oracle” and stopping logic
-Simulation-only “oracle” node:
+## 🚜 Main Node: `row_follow_camera.py`
 
-Script: src/AMIGA_Smart_Farming/src/amiga_sim/scripts/sim_weed_oracle.py
+Location:
 
-Subscribes to /gazebo/model_states and weed_positions.json
+```bash
+src/amiga_autonomy/scripts/row_follow_camera.py
+```
 
-Publishes the closest weed in the world frame as a PoseStamped on:
-/sim/nearest_weed
+Run with:
 
-The row-follow controller:
-
-Reads /sim/nearest_weed and the robot pose from /gazebo/model_states.
-
-Maintains a list of visited weeds, so it doesn’t stop at the same weed twice.
-
-Behaviour:
-
-Drive forward while following the row.
-
-If a new weed ahead is within _stop_distance, stop for _stop_duration seconds.
-
-Then continue driving and move on to the next weed.
-
-4. Fake GPS for later mapping / coverage
-A simple fake GPS node (simulation only):
-
-Script: src/AMIGA_Smart_Farming/src/amiga_sim/scripts/sim_fake_gps.py
-
-Converts the robot’s world pose into a fake GPS-like message on /sim/gps/fix.
-
-Intended to be replaced with real GPS on the physical AMIGA.
-
-How to run the simulation
-From your ROS Noetic Docker container:
-
-Source ROS and the workspace:
-
-bash
-Copy code
-cd /host/home/manan/amiga_digital_twin
-source /opt/ros/noetic/setup.bash
-catkin_make
-source devel/setup.bash
-Launch the AMIGA simulation (Gazebo + weeds + RViz):
-
-bash
-Copy code
-roslaunch amiga_sim sim.launch
-In a new terminal, start the row-follow controller with weed stopping:
-
-bash
-Copy code
+```bash
 rosrun amiga_autonomy row_follow_camera.py \
   _image_topic:=/oak_d_camera_1/image_raw \
   _forward_speed:=0.3 \
   _kp_row:=0.4 \
-  _lane_width_px:=90 \
+  _lane_width_px:=70 \
   _use_weed_stopping:=true \
   _stop_distance:=1.5 \
   _stop_duration:=3.0 \
   _debug_image_topic:=/row_follow/front_debug
-You should see:
+```
 
-The AMIGA driving along a plant row in Gazebo.
+---
 
-RViz showing the robot, weeds, and camera view.
+## 🌱 Weed Generation System
 
-Debug overlay topic /row_follow/front_debug with the lane band drawn over the plants.
+Weeds and plants are generated using a random scaling technique:
 
-Log messages printing the distance to the next weed and when the robot stops/starts.
+* Small plants (`scale <= 0.3`) → considered weeds
+* Larger ones → crop plants
 
-Upstream vs fork
-This workspace uses my fork of AMIGA_Smart_Farming:
+Located in:
 
-https://github.com/MananM1310/AMIGA_Smart_Farming (branch: simulation)
+```
+src/AMIGA_Smart_Farming/src/amiga_sim/scripts/gen_weeds.py
+```
 
-The original author’s repo is kept as the upstream remote so I can pull updates:
+Weed positions saved into:
 
-https://github.com/Janmejay-Rathi/AMIGA_Smart_Farming
+```
+src/AMIGA_Smart_Farming/src/amiga_sim/models/farm_weeds/weed_positions.json
+```
 
-The idea is to keep:
+Weed oracle publishes nearest weed:
 
-upstream: clean, original version
+```
+/sim/nearest_weed
+```
 
-origin (my fork): simulation + autonomy additions used for the digital twin
+---
+
+## 🧠 Design Philosophy
+
+This stack is built with real deployment in mind:
+
+* Simulation → Real robot pipeline
+* Same structure for ROS nodes
+* Same perception logic
+* Same topics
+
+Only sensor sources change between sim and real robot.
+
+---
+
+## ⚙️ Setup Instructions
+
+Clone your repo:
+
+```bash
+git clone https://github.com/MananM1310/amiga-digital-twin.git
+cd amiga-digital-twin
+```
+
+Initialize submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+Source workspace:
+
+```bash
+source devel/setup.bash
+```
+
+Launch simulation:
+
+```bash
+roslaunch amiga_sim sim.launch
+```
+
+---
+
+## 🔭 Current Roadmap
+
+* [x] Simulation startup
+* [x] Vision-based row following
+* [x] Weed stopping logic
+* [x] Lane visualization
+* [ ] Coverage mapping using GPS
+* [ ] Unvisited area planning
+* [ ] YOLO integration (sim + real)
+* [ ] Transfer to real AMIGA robot
+
+---
+
+## 👤 Author
+
+**Manan Maheshwari**
+MS Autonomy & Robotics – UIUC
+GitHub: [https://github.com/MananM1310](https://github.com/MananM1310)
+Digital Twin Repo: [https://github.com/MananM1310/amiga-digital-twin](https://github.com/MananM1310/amiga-digital-twin)
+
+---
+
+## 📜 Notes
+
+* This repository does **not modify** the original AMIGA repo directly.
+* All enhancements live inside my digital twin layer.
+* Safe for experimentation and extension.
+
+---
+
+🛠️ If you're building something similar, feel free to fork or reach out!
+
+
