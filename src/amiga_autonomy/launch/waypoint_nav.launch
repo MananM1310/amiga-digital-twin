@@ -1,0 +1,32 @@
+<launch>
+  <!-- Make sure Gazebo can find the AMIGA models -->
+  <env name="GAZEBO_MODEL_PATH"
+       value="$(find amiga_sim)/models:$(optenv GAZEBO_MODEL_PATH)" />
+
+  <!-- Start the AMIGA simulation -->
+  <include file="$(find amiga_sim)/launch/sim.launch" />
+
+  <!-- State estimation: publishes /sim/wheel_odom and /sim/imu -->
+  <node pkg="amiga_state_estimation"
+        type="sim_odom_imu.py"
+        name="sim_odom_imu"
+        output="screen">
+    <param name="robot_model_name" value="amiga_model" />
+    <!-- Rotate odom yaw by +90 deg to align base forward (+X) with row direction (+Y in world) -->
+    <param name="yaw_offset_rad" value="1.5708" />
+  </node>
+
+  <!-- Waypoint Navigator -->
+  <node pkg="amiga_autonomy"
+        type="waypoint_navigator.py"
+        name="waypoint_navigator"
+        output="screen">
+    <param name="linear_speed" value="0.8" />
+    <param name="angular_speed" value="1.0" />
+    <param name="goal_tolerance" value="0.3" />
+    <param name="heading_tolerance" value="0.1" />
+    <param name="kp_heading" value="2.0" />
+    <param name="rotate_in_place_threshold" value="0.6" />
+    <param name="invert_turn" value="false" />
+  </node>
+</launch>

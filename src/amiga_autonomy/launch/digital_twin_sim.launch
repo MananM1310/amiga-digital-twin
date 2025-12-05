@@ -1,7 +1,7 @@
 <launch>
   <!-- Make sure Gazebo can find the AMIGA models -->
   <env name="GAZEBO_MODEL_PATH"
-       value="$(find amiga_sim)/models:$(env GAZEBO_MODEL_PATH)" />
+       value="$(find amiga_sim)/models:$(optenv GAZEBO_MODEL_PATH)" />
 
   <!-- Start the AMIGA simulation -->
   <include file="$(find amiga_sim)/launch/sim.launch" />

@@ -1,0 +1,33 @@
+<launch>
+  <!-- Ensure Gazebo can find the models -->
+  <env name="GAZEBO_MODEL_PATH"
+       value="$(find amiga_sim)/models:$(optenv GAZEBO_MODEL_PATH)" />
+
+  <!-- Start the AMIGA sim (brings up Gazebo, fake GPS, weeds, etc.) -->
+  <include file ="$(find amiga_sim)/launch/sim.launch" />
+
+  <!-- State estimation (wheel odom + IMU + odom->base_link TF) -->
+  <node pkg="amiga_state_estimation"
+        type="sim_odom_imu.py"
+        name="sim_odom_imu"
+        output="screen">
+    <param name="robot_model_name" value="amiga_model" />
+    <param name="yaw_offset_rad" value="1.5708" />
+  </node>
+
+  <!-- Row-follow controller (camera + weed oracle) -->
+  <node pkg="amiga_autonomy"
+        type="row_follow_camera.py"
+        name="row_follow_camera"
+        output="screen">
+    <param name="image_topic" value="/oak_d_camera_1/image_raw" />
+    <param name="cmd_topic" value="/amiga/cmd_vel" />
+    <param name="forward_speed" value="0.4" />
+    <param name="kp_row" value="0.6" />
+    <param name="lane_width_px" value="80" />
+    <param name="use_weed_stopping" value="true" />
+    <param name="stop_distance" value="1.5" />
+    <param name="stop_duration" value="3.0" />
+    <param name="debug_image_topic" value="/row_follow/front_debug" />
+  </node>
+</launch>

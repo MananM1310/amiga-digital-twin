@@ -20,6 +20,7 @@ def angle_wrap(a):
 class SimOdomImuPublisher(object):
     def __init__(self):
         self.robot_model_name = rospy.get_param("~robot_model_name", "amiga_model")
+        self.yaw_offset = rospy.get_param("~yaw_offset_rad", 0.0)
 
         # Noise params (you can tune or turn off)
         self.odom_pos_std = rospy.get_param("~odom_pos_std", 0.01)      # m
@@ -30,12 +31,13 @@ class SimOdomImuPublisher(object):
         self.odom_pub = rospy.Publisher("/sim/wheel_odom", Odometry, queue_size=10)
         self.imu_pub = rospy.Publisher("/sim/imu", Imu, queue_size=10)
 
-        # self.tf_broadcaster = tf.TransformBroadcaster()
+        self.tf_broadcaster = tf.TransformBroadcaster()
 
         self.prev_time = None
         self.prev_x = None
         self.prev_y = None
         self.prev_yaw = None
+        self.last_tf_time = None
 
         self.sub = rospy.Subscriber(
             "/gazebo/model_states", ModelStates, self.model_states_cb, queue_size=1
@@ -60,7 +62,7 @@ class SimOdomImuPublisher(object):
         # yaw from quaternion
         siny_cosp = 2.0 * (q.w * q.z + q.x * q.y)
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
-        yaw_true = math.atan2(siny_cosp, cosy_cosp)
+        yaw_true = angle_wrap(math.atan2(siny_cosp, cosy_cosp) + self.yaw_offset)
 
         t = rospy.Time.now()
 
@@ -124,13 +126,15 @@ class SimOdomImuPublisher(object):
         self.odom_pub.publish(odom_msg)
 
         # Publish TF odom -> base_link
-        # self.tf_broadcaster.sendTransform(
-        #     (x_odom, y_odom, 0.0),
-        #     quat_odom,
-        #     t,
-        #     "base_link",
-        #     "odom",
-        # )
+        if t != self.last_tf_time:
+            self.tf_broadcaster.sendTransform(
+                (x_odom, y_odom, 0.0),
+                quat_odom,
+                t,
+                "base_link",
+                "odom",
+            )
+            self.last_tf_time = t
 
         # --- Fake IMU ---
         imu_msg = Imu()
